@@ -1,0 +1,3 @@
+${PODS_ROOT}/Target Support Files/Pods-FCNetworkExample-FCNetworkExampleUITests/Pods-FCNetworkExample-FCNetworkExampleUITests-frameworks.sh
+${BUILT_PRODUCTS_DIR}/AFNetworking/AFNetworking.framework
+${BUILT_PRODUCTS_DIR}/FCNetwork/FCNetwork.framework
