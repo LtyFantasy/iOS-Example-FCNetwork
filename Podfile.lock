@@ -14,7 +14,7 @@ PODS:
   - AFNetworking/Serialization (3.2.1)
   - AFNetworking/UIKit (3.2.1):
     - AFNetworking/NSURLSession
-  - FCNetwork (1.1.0):
+  - FCNetwork (1.0.0):
     - AFNetworking (~> 3.2.0)
 
 DEPENDENCIES:
@@ -27,7 +27,7 @@ SPEC REPOS:
 
 SPEC CHECKSUMS:
   AFNetworking: b6f891fdfaed196b46c7a83cf209e09697b94057
-  FCNetwork: 3020b563055aed72a861e7448213c8728e63f7ee
+  FCNetwork: 09453f753dec6d57277d53450ac99035db7a3393
 
 PODFILE CHECKSUM: d485467f0fa6384ad274f0915c55d19885aa845a
 

@@ -11,8 +11,6 @@
 #import "FCNetworkError.h"
 #import "FCNetworkInterceptor.h"
 #import "FCNetworkCache.h"
-#import "FCNetworkTask.h"
-#import "FCNetworkResponse.h"
 
 #import <AFNetworking/AFNetworking.h>
 
@@ -35,11 +33,6 @@
 #define FCLog_Error(fmt, ...)
 
 #endif
-
-typedef void (^FCNetworkTaskSuccessBlock) (NSURLSessionTask *task, id responseObject);
-typedef void (^FCNetworkTaskFailureBlock) (NSURLSessionTask *task, NSError *error);
-
-
 
 #pragma mark - Inner Class
 
@@ -108,82 +101,14 @@ static NSUInteger LogBlockLevel = FCNetworkLogLevelWarning;
 
 @end
 
-@class FCNetworkGroupRequestTask;
-@protocol FCNetworkGroupRequestTaskDelegate <NSObject>
-
-@required
-- (void)groupRequestTask:(FCNetworkGroupRequestTask*)task didCompleteWithSuccess:(BOOL)success;
-
-@end
-
-@interface FCNetworkGroupRequestTask : NSObject
-
-@property (nonatomic, weak) id<FCNetworkGroupRequestTaskDelegate> delegate;
-
-@property (nonatomic, strong) NSArray<FCNetworkRequest*> *requests;
-@property (nonatomic, strong) NSMutableArray<FCNetworkSuccessResponse*> *successResponses;
-@property (nonatomic, strong) FCNetworkErrorResponse *errorResponses;
-
-@property (nonatomic, copy) FCNetworkGroupSuccessBlock successBlock;
-@property (nonatomic, copy) FCNetworkGroupFailureBlock failureBlock;
-
-@end
-
-@implementation FCNetworkGroupRequestTask
-
-- (instancetype)initWithRequests:(NSArray<FCNetworkRequest*>*)requests {
-    
-    if (self = [super init]) {
-        _requests = requests;
-        _successResponses = [NSMutableArray array];
-    }
-    return self;
-}
-
-- (void)addSuccessResponse:(FCNetworkSuccessResponse*)response forRequest:(FCNetworkRequest*)request {
-    
-    FCNetworkSuccessResponse *obj = [FCNetworkSuccessResponse new];
-    obj.request = request;
-    obj.responseObject = response;
-    [_successResponses addObject:obj];
-    
-    if (_successResponses.count >= _requests.count && _successBlock) {
-        
-        _successBlock(_successResponses);
-        if (_delegate && [_delegate respondsToSelector:@selector(groupRequestTask:didCompleteWithSuccess:)]) {
-            [_delegate groupRequestTask:self didCompleteWithSuccess:YES];
-        }
-    }
-}
-
-- (void)addErrorResponse:(FCNetworkError*)error forRequest:(FCNetworkRequest*)request {
-    
-    FCNetworkErrorResponse *obj = [FCNetworkErrorResponse new];
-    obj.request = request;
-    obj.error = error;
-    _errorResponses = obj;
-    
-    if (_failureBlock) {
-        
-        _failureBlock(obj);
-        if (_delegate && [_delegate respondsToSelector:@selector(groupRequestTask:didCompleteWithSuccess:)]) {
-            [_delegate groupRequestTask:self didCompleteWithSuccess:NO];
-        }
-    }
-}
-
-@end
-
 #pragma mark - Main Class
 
-@interface FCNetworkManager () <FCNetworkGroupRequestTaskDelegate>
+@interface FCNetworkManager ()
 
 @property (nonatomic, strong) NSMutableDictionary<NSString*, FCNetworkSession*> *sessionDict;
 @property (nonatomic, strong) Class errorClass;
 @property (nonatomic, strong) id<FCNetworkInterceptor> interceptor;
 @property (nonatomic, strong) FCNetworkCache *cache;
-
-@property (nonatomic, strong) NSMutableArray<FCNetworkGroupRequestTask*> *groupTasks;
 
 @end
 
@@ -214,7 +139,6 @@ static NSUInteger LogBlockLevel = FCNetworkLogLevelWarning;
     
     _sessionDict = [NSMutableDictionary dictionary];
     _cache = [FCNetworkCache defaultCache];
-    _groupTasks = [NSMutableArray array];
 }
 
 #pragma mark - Data
@@ -258,6 +182,7 @@ static NSUInteger LogBlockLevel = FCNetworkLogLevelWarning;
     if (!identifier) {
         return;
     }
+    
     _sessionDict[identifier] = nil;
 }
 
@@ -275,9 +200,10 @@ static NSUInteger LogBlockLevel = FCNetworkLogLevelWarning;
 
 #pragma mark - Request
 
-- (FCNetworkTask*)sendRequest:(FCNetworkRequest*)request successBlock:(FCNetworkSuccessBlock)successBlock failureBlock:(FCNetworkFailureBlock)failureBlock {
+- (NSURLSessionTask*)sendRequest:(FCNetworkRequest*)request parser:(FCNetworkParser*)parser successBlock:(FCNetworkSuccessBlock)successBlock failureBlock:(FCNetworkFailureBlock)failureBlock {
     
     return [self sendRequest:request
+                      parser:parser
                 successBlock:successBlock
          uploadProgressBlock:nil
    constructingBodyWithBlock:nil
@@ -286,10 +212,11 @@ static NSUInteger LogBlockLevel = FCNetworkLogLevelWarning;
                 failureBlock:failureBlock];
 }
 
-- (FCNetworkTask*)sendUploadRequest:(FCNetworkRequest*)request successBlock:(FCNetworkSuccessBlock)successBlock progressBlock:(FCNetworkProgressBlock)progressBlock constructingBodyWithBlock:(void (^)(id <AFMultipartFormData> formData))constructingBodyBlock failureBlock:(FCNetworkFailureBlock)failureBlock {
+- (NSURLSessionTask*)sendUploadRequest:(FCNetworkRequest*)request parser:(FCNetworkParser*)parser successBlock:(FCNetworkSuccessBlock)successBlock progressBlock:(FCNetworkProgressBlock)progressBlock constructingBodyWithBlock:(void (^)(id <AFMultipartFormData> formData))constructingBodyBlock failureBlock:(FCNetworkFailureBlock)failureBlock {
     
     request.requestMode = FCNetworkRequestModePOST;
     return [self sendRequest:request
+                      parser:parser
                 successBlock:successBlock
          uploadProgressBlock:progressBlock
    constructingBodyWithBlock:constructingBodyBlock
@@ -298,10 +225,11 @@ static NSUInteger LogBlockLevel = FCNetworkLogLevelWarning;
                 failureBlock:failureBlock];
 }
 
-- (FCNetworkTask*)sendDownloadRequest:(FCNetworkRequest*)request successBlock:(FCNetworkDownloadSuccessBlock)successBlock progressBlock:(FCNetworkProgressBlock)progressBlock destinationBlock:(NSURL * (^)(NSURL *targetPath, NSURLResponse *response))destinationBlock failureBlock:(FCNetworkFailureBlock)failureBlock {
+- (NSURLSessionTask*)sendDownloadRequest:(FCNetworkRequest*)request parser:(FCNetworkParser*)parser successBlock:(FCNetworkDownloadSuccessBlock)successBlock progressBlock:(FCNetworkProgressBlock)progressBlock destinationBlock:(NSURL * (^)(NSURL *targetPath, NSURLResponse *response))destinationBlock failureBlock:(FCNetworkFailureBlock)failureBlock {
     
     request.requestMode = FCNetworkRequestModeGET;
     return [self sendRequest:request
+                      parser:parser
                 successBlock:successBlock
          uploadProgressBlock:nil
    constructingBodyWithBlock:nil
@@ -310,32 +238,7 @@ static NSUInteger LogBlockLevel = FCNetworkLogLevelWarning;
                 failureBlock:failureBlock];
 }
 
-- (NSArray<FCNetworkTask *> *)sendGroupRequest:(NSArray<FCNetworkRequest *> *)groupRequest successBlock:(FCNetworkGroupSuccessBlock)successBlock failureBlock:(FCNetworkGroupFailureBlock)failureBlock {
-    
-    FCNetworkGroupRequestTask *groupTask = [[FCNetworkGroupRequestTask alloc] initWithRequests:groupRequest];
-    groupTask.delegate = self;
-    groupTask.successBlock = successBlock;
-    groupTask.failureBlock = failureBlock;
-    [_groupTasks addObject:groupTask];
-    
-    FCLog_Verbose(@"GroupTask[%p] Begin", groupTask);
-    
-    NSMutableArray *taskArray = [NSMutableArray arrayWithCapacity:groupRequest.count];
-    for (FCNetworkRequest *request in groupRequest) {
-        
-        FCNetworkTask *task = [self sendRequest:request successBlock:^(id response) {
-            [groupTask addSuccessResponse:response forRequest:request];
-        } failureBlock:^(FCNetworkError *error) {
-            [groupTask addErrorResponse:error forRequest:request];
-        }];
-        
-        [taskArray addObject:task];
-    }
-    
-    return taskArray;
-}
-
-- (FCNetworkTask*)sendRequest:(FCNetworkRequest*)request successBlock:(FCNetworkSuccessBlock)successBlock uploadProgressBlock:(FCNetworkProgressBlock)uploadProgressBlock constructingBodyWithBlock:(void (^)(id <AFMultipartFormData> formData))constructingBodyBlock downloadProgressBlock:(FCNetworkProgressBlock)downloadProgressBlock destinationBlock:(NSURL * (^)(NSURL *targetPath, NSURLResponse *response))destinationBlock failureBlock:(FCNetworkFailureBlock)failureBlock {
+- (NSURLSessionTask*)sendRequest:(FCNetworkRequest*)request parser:(FCNetworkParser*)parser successBlock:(FCNetworkSuccessBlock)successBlock uploadProgressBlock:(FCNetworkProgressBlock)uploadProgressBlock constructingBodyWithBlock:(void (^)(id <AFMultipartFormData> formData))constructingBodyBlock downloadProgressBlock:(FCNetworkProgressBlock)downloadProgressBlock destinationBlock:(NSURL * (^)(NSURL *targetPath, NSURLResponse *response))destinationBlock failureBlock:(FCNetworkFailureBlock)failureBlock {
     
     NSAssert(request != nil, @"request should not be nil");
     NSAssert(successBlock != nil || failureBlock != nil, @"successBlock or failureBlock should not be nil");
@@ -344,16 +247,9 @@ static NSUInteger LogBlockLevel = FCNetworkLogLevelWarning;
     NSAssert(session.sessionManager != nil, @"can not find AFHTTPSessionManager with identifier %@", request.sessionIdentifier);
     
     @FCWeakSelf;
-    FCNetworkTask *task = [FCNetworkTask new];
-    task.request = request;
+    __block NSURLSessionTask *task = nil;
     
-    /**
-        requestTaskBlock 即本次请求所要做的全部事情
-        1，判断本次请求是否读缓存
-        2，组装参数，发起请求
-        3，在task成功回调中，判断是否请求成功，如果成功，考虑保存缓存，若存在业务层的错误，判断是否需要拦截。
-        4，在task失败回调中，判断是否存在网络层错误，如果有错误，判断是否需要拦截
-     */
+    // 指代本次请求要做的事情， 组装参数、创建task并发起请求、最终回调successBlock或failureBlock
     void (^requestTaskBlock) (void) = ^{
         
         @FCStrongSelf;
@@ -361,9 +257,127 @@ static NSUInteger LogBlockLevel = FCNetworkLogLevelWarning;
         // 非上传、下载的POST、GET请求才走缓存
         BOOL enableCache = request.enableCache && (request.requestMode == FCNetworkRequestModeGET || request.requestMode == FCNetworkRequestModePOST) && !destinationBlock && !constructingBodyBlock;
         
-        // 创建针对Task的成功、失败回调包裹
-        FCNetworkTaskSuccessBlock taskSuccessBlock = [self createTaskSuccessBlockWithRequest:request enableCache:enableCache successBlock:successBlock failureBlock:failureBlock];
-        FCNetworkTaskFailureBlock taskFailureBlock = [self createTaskFailureBlockWithRequest:request successBlock:successBlock failureBlock:failureBlock];
+        // 成功block包裹
+        void (^taskSuccessBlock) (NSURLSessionTask *task, id responseObject) = ^(NSURLSessionTask *task, id responseObject) {
+            
+            // 如果没有传解析器，则直接返回原始数据，正常业务下不推荐这种操作
+            if (!parser) {
+                FCLog_Warning(@"request[%@]'s parser is nil, so origin response object will be return", NSStringFromClass([request class]), responseObject);
+                FCLog_Verbose(@"request[%@] succcess:\n"
+                              "\t[URL] - %@\n"
+                              "\t[Header Params] - %@\n"
+                              "\t[Body Params] - %@\n"
+                              "\t[Response] - %@",
+                              NSStringFromClass([request class]),
+                              request.url,
+                              request.headerParams,
+                              request.bodyParams,
+                              responseObject);
+                successBlock(responseObject);
+
+                // 请求数据成功才会存入缓存，如果没有task对象，说明这个并不是来自网络请求的成功回调，而是来自读缓存
+                if (task && enableCache) {
+                    [self saveCacheWithRequest:request responseObject:responseObject];
+                }
+                return;
+            }
+            
+            // 下载请求，才会返回一个NSURL对象，代指文件存储路径
+            if ([responseObject isKindOfClass:[NSURL class]] && request.requestMode == FCNetworkRequestModeGET) {
+                FCLog_Verbose(@"request[%@] download succcess:\n"
+                              "\t[URL] - %@\n"
+                              "\t[Header Params] - %@\n"
+                              "\t[Body Params] - %@\n"
+                              "\t[Response] - %@", NSStringFromClass([request class]),
+                              request.url,
+                              request.headerParams,
+                              request.bodyParams,
+                              responseObject);
+                successBlock(responseObject);
+                return;
+            }
+            
+            // 验证服务端返回数据
+            // 这里产生的失败，是指服务端正常返回了信息内容，但是存在业务层的失败，如业务层错误码不为0（密码错误、权限认证失败等）、数据格式不正确等
+            parser.originResponseData = responseObject;
+            FCNetworkError *fcError = [parser verifyResponse:responseObject];
+            if (!fcError) {
+                FCLog_Verbose(@"request[%@] succcess:\n"
+                              "\t[URL] - %@\n"
+                              "\t[Header Params] - %@\n"
+                              "\t[Body Params] - %@\n"
+                              "\t[Response] - %@", NSStringFromClass([request class]),
+                              request.url,
+                              request.headerParams,
+                              request.bodyParams,
+                              responseObject);
+                successBlock([parser parseResponse:responseObject]);
+                
+                if (task && enableCache) {
+                    [self saveCacheWithRequest:request responseObject:responseObject];
+                }
+                return;
+            }
+             
+            FCLog_Warning(@"request[%@] received business error:\n"
+                          "\t[URL] - %@\n"
+                          "\t[Header Params] - %@\n"
+                          "\t[Body Params] - %@\n"
+                          "\t[Error] - %zd %@\n"
+                          "\t[Response] - %@", NSStringFromClass([request class]),
+                          request.url,
+                          request.headerParams,
+                          request.bodyParams,
+                          fcError.errorCode, fcError.errorDescription,
+                          responseObject);
+            // [--- 业务层错误拦截 ---]
+            if (self.interceptor) {
+                // 如果拦截器会拦截错误，则后续流程交由拦截器处理
+                BOOL b = [self.interceptor interceptError:fcError request:request parser:parser successBlock:successBlock failureBlock:failureBlock];
+                // 如果拦截器不拦截该错误，则把错误码传递给失败回调
+                if (!b) {
+                    failureBlock(fcError);
+                }
+#ifdef DEBUG
+                else {
+                    FCLog_Verbose(@"request[%@]'s business error (%zd, %@) has been intercepted", NSStringFromClass([request class]), fcError.errorCode, fcError.errorDescription);
+                }
+#endif
+            }
+            else {
+                failureBlock(fcError);
+            }
+        };
+        
+        // 失败block包裹，这里的失败，是指网络通信失败，或者服务端返回非正常回应
+        void (^taskFailureBlock) (NSURLSessionTask *task, NSError *error) = ^(NSURLSessionTask *task, NSError *error) {
+            
+            FCNetworkError *fcError = [self.errorClass errorWithSystemError:error];
+            FCLog_Warning(@"request[%@] received network error:\n"
+                          "\t[URL] - %@\n"
+                          "\t[Header Params] - %@\n"
+                          "\t[Body Params] - %@\n"
+                          "\t[Error] - %zd %@", NSStringFromClass([request class]),
+                          request.url,
+                          request.headerParams,
+                          request.bodyParams,
+                          fcError.errorCode, fcError.errorDescription);
+            // [--- 网络错误拦截 ---]
+            if (self.interceptor) {
+                BOOL b = [self.interceptor interceptError:fcError request:request parser:parser successBlock:successBlock failureBlock:failureBlock];
+                if (!b) {
+                    failureBlock(fcError);
+                }
+#ifdef DEBUG
+                else {
+                    FCLog_Verbose(@"request[%@]'s network error (%zd, %@) has been intercepted", NSStringFromClass([request class]), fcError.errorCode, fcError.errorDescription);
+                }
+#endif
+            }
+            else {
+                failureBlock(fcError);
+            }
+        };
         
         // 读缓存，如果有，就直接调用成功返回
         if (enableCache && [self loadCacheWithRequest:request sucessBlock:taskSuccessBlock]) {
@@ -372,14 +386,14 @@ static NSUInteger LogBlockLevel = FCNetworkLogLevelWarning;
         
         // 同一个session下的请求，参数组装和创建task期间为串行执行，task任务为异步执行
         dispatch_sync(session.queue, ^{
-            task.task = [self createTaskWithSessionManager:session.sessionManager
-                                                   request:request
-                                       uploadProgressBlock:uploadProgressBlock
-                                 constructingBodyWithBlock:constructingBodyBlock
-                                     downloadProgressBlock:downloadProgressBlock
-                                          destinationBlock:destinationBlock
-                                               sucessBlock:taskSuccessBlock
-                                              failureBlock:taskFailureBlock];
+            task = [self createTaskWithSessionManager:session.sessionManager
+                                              request:request
+                                  uploadProgressBlock:uploadProgressBlock
+                            constructingBodyWithBlock:constructingBodyBlock
+                                downloadProgressBlock:downloadProgressBlock
+                                     destinationBlock:destinationBlock
+                                          sucessBlock:taskSuccessBlock
+                                         failureBlock:taskFailureBlock];
         });
     };
     
@@ -510,153 +524,11 @@ static NSUInteger LogBlockLevel = FCNetworkLogLevelWarning;
     return task;
 }
 
-#pragma mark - Task Block Create
-
-- (FCNetworkTaskSuccessBlock)createTaskSuccessBlockWithRequest:(FCNetworkRequest*)request enableCache:(BOOL)enableCache successBlock:(FCNetworkSuccessBlock)successBlock failureBlock:(FCNetworkFailureBlock)failureBlock {
-    
-    @FCWeakSelf;
-    FCNetworkTaskSuccessBlock block = ^(NSURLSessionTask *task, id responseObject) {
-        
-        /**
-            如果是走网络请求，服务端返回回来的成功，那么task一定有值
-            如果是走读缓存，成功读取到了缓存数据而来的成功回调，那么是没有task值的
-         */
-        BOOL needSaveCache = task && enableCache;
-    
-        @FCStrongSelf;
-        // 如果没有传解析器，则直接返回原始数据，正常业务下不推荐这种操作
-        FCNetworkParser *parser = request.parser;
-        if (!parser) {
-            FCLog_Warning(@"request[%@]'s parser is nil, so origin response object will be return", NSStringFromClass([request class]), responseObject);
-            FCLog_Verbose(@"request[%@] succcess:\n"
-                          "\t[URL] - %@\n"
-                          "\t[Header Params] - %@\n"
-                          "\t[Body Params] - %@\n"
-                          "\t[Response] - %@",
-                          NSStringFromClass([request class]),
-                          request.url,
-                          request.headerParams,
-                          request.bodyParams,
-                          responseObject);
-            successBlock(responseObject);
-            if (needSaveCache) {
-                [self saveCacheWithRequest:request responseObject:responseObject];
-            }
-            return;
-        }
-        
-        // 下载请求，会直接返回一个NSURL对象，代指文件存储路径
-        if ([responseObject isKindOfClass:[NSURL class]] && request.requestMode == FCNetworkRequestModeGET) {
-            FCLog_Verbose(@"request[%@] download succcess:\n"
-                          "\t[URL] - %@\n"
-                          "\t[Header Params] - %@\n"
-                          "\t[Body Params] - %@\n"
-                          "\t[Response] - %@", NSStringFromClass([request class]),
-                          request.url,
-                          request.headerParams,
-                          request.bodyParams,
-                          responseObject);
-            successBlock(responseObject);
-            return;
-        }
-        
-        // 验证服务端返回数据
-        // 这里产生的失败，是指服务端正常返回了信息内容，但是存在业务层的失败，如业务层错误码不为0（密码错误、权限认证失败等）、数据格式不正确等
-        parser.originResponseData = responseObject;
-        FCNetworkError *fcError = [parser verifyResponse:responseObject];
-        if (!fcError) {
-            FCLog_Verbose(@"request[%@] succcess:\n"
-                          "\t[URL] - %@\n"
-                          "\t[Header Params] - %@\n"
-                          "\t[Body Params] - %@\n"
-                          "\t[Response] - %@", NSStringFromClass([request class]),
-                          request.url,
-                          request.headerParams,
-                          request.bodyParams,
-                          responseObject);
-            successBlock([parser parseResponse:responseObject]);
-            if (needSaveCache) {
-                [self saveCacheWithRequest:request responseObject:responseObject];
-            }
-            return;
-        }
-         
-        FCLog_Warning(@"request[%@] received business error:\n"
-                      "\t[URL] - %@\n"
-                      "\t[Header Params] - %@\n"
-                      "\t[Body Params] - %@\n"
-                      "\t[Error] - %zd %@\n"
-                      "\t[Response] - %@", NSStringFromClass([request class]),
-                      request.url,
-                      request.headerParams,
-                      request.bodyParams,
-                      fcError.errorCode, fcError.errorDescription,
-                      responseObject);
-        // [--- 业务层错误拦截 ---]
-        if (self.interceptor) {
-            // 如果拦截器会拦截错误，则后续流程交由拦截器处理
-            BOOL b = [self.interceptor interceptError:fcError request:request successBlock:successBlock failureBlock:failureBlock];
-            // 如果拦截器不拦截该错误，则把错误码传递给失败回调
-            if (!b) {
-                failureBlock(fcError);
-            }
-#ifdef DEBUG
-            else {
-                FCLog_Verbose(@"request[%@]'s business error (%zd, %@) has been intercepted", NSStringFromClass([request class]), fcError.errorCode, fcError.errorDescription);
-            }
-#endif
-        }
-        else {
-            failureBlock(fcError);
-        }
-    };
-    
-    return block;
-}
-
-- (FCNetworkTaskFailureBlock)createTaskFailureBlockWithRequest:(FCNetworkRequest*)request successBlock:(FCNetworkSuccessBlock)successBlock failureBlock:(FCNetworkFailureBlock)failureBlock {
-    
-    @FCWeakSelf;
-    FCNetworkTaskFailureBlock block = ^(NSURLSessionTask *task, NSError *error) {
-                
-        @FCStrongSelf;
-        FCNetworkError *fcError = [self.errorClass errorWithSystemError:error];
-        FCLog_Warning(@"request[%@] received network error:\n"
-                      "\t[URL] - %@\n"
-                      "\t[Header Params] - %@\n"
-                      "\t[Body Params] - %@\n"
-                      "\t[Error] - %zd %@", NSStringFromClass([request class]),
-                      request.url,
-                      request.headerParams,
-                      request.bodyParams,
-                      fcError.errorCode, fcError.errorDescription);
-        
-        // [--- 网络错误拦截 ---]
-        if (self.interceptor) {
-            BOOL b = [self.interceptor interceptError:fcError request:request successBlock:successBlock failureBlock:failureBlock];
-            if (!b) {
-                failureBlock(fcError);
-            }
-#ifdef DEBUG
-            else {
-                FCLog_Verbose(@"request[%@]'s network error (%zd, %@) has been intercepted", NSStringFromClass([request class]), fcError.errorCode, fcError.errorDescription);
-            }
-#endif
-        }
-        else {
-            failureBlock(fcError);
-        }
-    };
-    
-    return block;
-}
-
 #pragma mark - Cache
 
 - (BOOL)loadCacheWithRequest:(FCNetworkRequest*)request sucessBlock:(void (^) (NSURLSessionTask *task, id responseObject))successBlock {
     
-    // 如果读取到了缓存，就走taskSuccessBlock成功返回，因为缓存的是服务端原始返回信息，因此需要走一遍parser解析
-    // 如果直接缓存parser解析后生成的数据对象，那么需要所有数据对象都实现NSCoding协议，会增加复杂度
+    // 如果读取到了缓存，就走taskSuccessBlock成功返回，因为缓存的是服务端原始返回信息，因此需要走一遍解析流程
     FCNetworkCacheData *data = [self.cache dataForKey:request.cacheKey type:request.cacheType];
     if (data) {
         FCLog_Verbose(@"request[%@] load cache success", NSStringFromClass([request class]));
@@ -683,14 +555,6 @@ static NSUInteger LogBlockLevel = FCNetworkLogLevelWarning;
     }
     
     [_cache saveData:data forKey:data.key type:request.cacheType];
-}
-
-#pragma mark - FCNetworkGroupRequestTaskDelegate
-
-- (void)groupRequestTask:(FCNetworkGroupRequestTask *)task didCompleteWithSuccess:(BOOL)success {
-    
-    [_groupTasks removeObject:task];
-    FCLog_Verbose(@"GroupTask[%p] End with %@", task, success ? @"success" : @"error");
 }
 
 @end

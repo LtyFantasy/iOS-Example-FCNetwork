@@ -8,7 +8,7 @@
 #ifndef FCNetworkDefines_h
 #define FCNetworkDefines_h
 
-@class FCNetworkError, FCNetworkSuccessResponse, FCNetworkErrorResponse;
+@class FCNetworkError;
 
 // ---------- 请求类型 -----------
 typedef NS_ENUM(NSUInteger, FCNetworkRequestMode) {
@@ -32,8 +32,5 @@ typedef void (^FCNetworkDownloadSuccessBlock) (NSURL *filePath);
 typedef void (^FCNetworkFailureBlock) (FCNetworkError *error);
 typedef void (^FCNetworkProgressBlock) (NSProgress *progress);
 typedef void (^FCNetworkCacheBlock) (id cache);
-
-typedef void (^FCNetworkGroupSuccessBlock) (NSArray<FCNetworkSuccessResponse*> *responses);
-typedef void (^FCNetworkGroupFailureBlock) (FCNetworkErrorResponse *response);
 
 #endif /* FCNetworkDefines_h */

@@ -11,22 +11,16 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-@class FCNetworkParser;
 @interface FCNetworkRequest : NSObject
 
 /// 该请求所对应的AFHTTPSessionManager对象标记值
 @property (nonatomic, copy) NSString *sessionIdentifier;
-/// 请求所对应的解析器
-@property (nonatomic, strong) FCNetworkParser *parser;
 /// 请求URL地址，默认为 @""
 @property (nonatomic, copy) NSString *url;
 /// 请求方式，默认GET
 @property (nonatomic, assign) FCNetworkRequestMode requestMode;
 /// 超时时间，默认30秒，最小为1秒
 @property (nonatomic, assign) NSInteger timeoutInterval;
-
-/// 标签值，可以用来进行相关标记
-@property (nonatomic, assign) NSInteger tag;
 
 /**
     请求头参数，需要子类继承并实现

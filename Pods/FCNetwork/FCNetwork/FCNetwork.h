@@ -14,7 +14,5 @@
 #import "FCNetworkError.h"
 #import "FCNetworkInterceptor.h"
 #import "FCNetworkCache.h"
-#import "FCNetworkTask.h"
-#import "FCNetworkResponse.h"
 
 #endif /* FCNetwork_h */

@@ -21,8 +21,4 @@
     return error;
 }
 
-- (NSString *)description {
-    return [NSString stringWithFormat:@"[FCNetworkError] code(%zd) msg(%@)", _errorCode, _errorDescription];
-}
-
 @end
