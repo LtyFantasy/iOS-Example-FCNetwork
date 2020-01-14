@@ -59,6 +59,7 @@
     
     _cellModels = [NSMutableArray array];
     [_cellModels addObject:[CellModel modelWithTitle:@"GET请求" selector:@selector(sendGetRequest)]];
+    [_cellModels addObject:[CellModel modelWithTitle:@"GET批量组请求" selector:@selector(sendGroupRequest)]];
     [_cellModels addObject:[CellModel modelWithTitle:@"清除请求缓存" selector:@selector(cleanCache)]];
 }
 
@@ -118,7 +119,7 @@
     request.cacheType = FCNetworkCacheTypeCache;
     request.cacheExpireTime = -1;
     
-    [[FCNetworkManager manager] sendRequest:request parser:[QueryCountriesParser new] successBlock:^(id response) {
+    [[FCNetworkManager manager] sendRequest:request successBlock:^(id response) {
        
         NSLog(@"请求成功");
         NSArray<QueryCountriesResponse*> *array = response;
@@ -129,6 +130,47 @@
     } failureBlock:^(FCNetworkError *error) {
         
         NSLog(@"请求错误 ：%@", error);
+    }];
+}
+
+- (void)sendGroupRequest {
+    
+    QueryCountriesRequest *request1 = [QueryCountriesRequest new];
+    request1.orderBy = @[@"cities", @"locations"];
+    request1.sort = @[@"desc"];
+    request1.limit = 1;
+    request1.page = 1;
+    
+    QueryCountriesRequest *request2 = [QueryCountriesRequest new];
+    request2.orderBy = @[@"cities", @"locations"];
+    request2.sort = @[@"desc"];
+    request2.limit = 1;
+    request2.page = 2;
+    
+    QueryCountriesRequest *request3 = [QueryCountriesRequest new];
+    request3.orderBy = @[@"cities", @"locations"];
+    request3.sort = @[@"desc"];
+    request3.limit = 1;
+    request3.page = 3;
+    
+    [[FCNetworkManager manager] sendGroupRequest:@[request1, request2, request3] successBlock:^(NSArray<FCNetworkSuccessResponse *> *responses) {
+        
+        NSLog(@"请求成功");
+        for (FCNetworkSuccessResponse *response in responses) {
+            
+            // response.request 可以判断这个是属于哪个请求的
+            // TODO ..
+            
+            // 获取请求的返回数据
+            NSArray<QueryCountriesResponse*> *array = response.responseObject;
+            for (QueryCountriesResponse *data in array) {
+                NSLog(@"name = %@, code = %@, cities = %zd", data.name, data.code, data.cities);
+            }
+        }
+        
+    } failureBlock:^(FCNetworkErrorResponse *responses) {
+        
+        NSLog(@"请求错误 ：%@", responses.error);
     }];
 }
 

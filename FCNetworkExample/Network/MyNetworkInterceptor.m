@@ -41,22 +41,22 @@
     return NO;
 }
 
-- (BOOL)interceptError:(FCNetworkError *)error request:(FCNetworkRequest *)request parser:(FCNetworkParser *)parser successBlock:(FCNetworkSuccessBlock)successBlock failureBlock:(FCNetworkFailureBlock)failureBlock {
+- (BOOL)interceptError:(FCNetworkError *)error request:(FCNetworkRequest *)request successBlock:(FCNetworkSuccessBlock)successBlock failureBlock:(FCNetworkFailureBlock)failureBlock {
     
     // 拦截特定的错误码，比如请求失败，发现原因是token失效了
     if (error.errorCode == 1001) {
         
         // 以下代码模拟发起一次token刷新请求，当然，本处是不可能执行成功的
         FCNetworkRequest *tokenRefreshRequest = [FCNetworkRequest new];
-        FCNetworkParser *tokenRefreshParser = [FCNetworkParser new];
-        [[FCNetworkManager manager] sendRequest:tokenRefreshRequest parser:tokenRefreshParser successBlock:^(id response) {
+        tokenRefreshRequest.parser = [FCNetworkParser new];
+        [[FCNetworkManager manager] sendRequest:tokenRefreshRequest successBlock:^(id response) {
            
             // 如果Token请求成功了
             NSString *newToken = response;
             // TODO ....
             
             // 然后继续之前因为token过期，而导致失败的请求，从而实现token自动续期
-            [[FCNetworkManager manager] sendRequest:request parser:parser successBlock:successBlock failureBlock:failureBlock];
+            [[FCNetworkManager manager] sendRequest:request successBlock:successBlock failureBlock:failureBlock];
             
         } failureBlock:^(FCNetworkError *tokenError) {
             

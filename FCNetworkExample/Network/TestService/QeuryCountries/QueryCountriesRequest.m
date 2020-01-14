@@ -7,6 +7,7 @@
 //
 
 #import "QueryCountriesRequest.h"
+#import "QueryCountriesParser.h"
 
 @implementation QueryCountriesRequest
 
@@ -16,6 +17,7 @@
         
         self.requestMode = FCNetworkRequestModeGET;
         self.url = @"https://api.openaq.org/v1/countries";
+        self.parser = [QueryCountriesParser new];
     }
     return self;
 }

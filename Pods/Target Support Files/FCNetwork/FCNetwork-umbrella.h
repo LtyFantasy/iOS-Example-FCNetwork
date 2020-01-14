@@ -18,6 +18,8 @@
 #import "FCNetworkError.h"
 #import "FCNetworkParser.h"
 #import "FCNetworkRequest.h"
+#import "FCNetworkResponse.h"
+#import "FCNetworkTask.h"
 
 FOUNDATION_EXPORT double FCNetworkVersionNumber;
 FOUNDATION_EXPORT const unsigned char FCNetworkVersionString[];

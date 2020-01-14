@@ -44,13 +44,12 @@ NS_ASSUME_NONNULL_BEGIN
  
     @param error parser解析出来的服务器错误
     @param request 请求体
-    @param parser 对应请求的解析器
     @param successBlock 请求成功回调
     @param failureBlock 请求失败回调
  
     @return YES 事件被拦截 NO 不拦截
  */
-- (BOOL)interceptError:(FCNetworkError*)error request:(FCNetworkRequest*)request parser:(FCNetworkParser*)parser successBlock:(FCNetworkSuccessBlock)successBlock failureBlock:(FCNetworkFailureBlock)failureBlock;
+- (BOOL)interceptError:(FCNetworkError*)error request:(FCNetworkRequest*)request successBlock:(FCNetworkSuccessBlock)successBlock failureBlock:(FCNetworkFailureBlock)failureBlock;
 
 @end
 
