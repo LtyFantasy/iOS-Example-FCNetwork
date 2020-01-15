@@ -10,6 +10,9 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+/**
+    本接口来自网上的免费api
+ */
 @interface QueryCountriesRequest : TestServiceBaseRequest
 
 @property (nonatomic, strong) NSArray<NSString*> *orderBy;

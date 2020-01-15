@@ -10,6 +10,9 @@
 
 @implementation MyNetworkError
 
+/**
+    这里，转换网络通信错误到本项目的错误体系中，重新赋值错误码和错误描述等
+ */
 + (instancetype)errorWithSystemError:(NSError *)error {
     return [super errorWithSystemError:error];
 }

@@ -10,6 +10,9 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+/**
+    实际业务中，每个项目应该有自己的错误码体系
+ */
 @interface MyNetworkError : FCNetworkError
 
 @end

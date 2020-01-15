@@ -14,12 +14,16 @@
     
     if (self = [super init]) {
         
+        // 同一批业务接口，session一般都是一样的，所以在基类里控制
         self.sessionIdentifier = @"TestServiceSession";
         self.timeoutInterval = 15;
     }
     return self;
 }
 
+/**
+  这里放置公共的Header参数等
+ */
 - (NSDictionary *)headerParams {
     return [super headerParams];
 }

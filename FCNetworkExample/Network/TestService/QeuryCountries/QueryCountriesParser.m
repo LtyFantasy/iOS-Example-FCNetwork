@@ -22,6 +22,9 @@
         return nil;
     }
     
+    /**
+        为了方便，可以使用 JSON转Model 的框架或者方法来进行处理，进一步精简代码
+     */
     NSMutableArray *array = [NSMutableArray array];
     for (NSDictionary *resultDict in resultsArray) {
         
