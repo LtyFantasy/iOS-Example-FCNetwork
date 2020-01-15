@@ -2,8 +2,8 @@
 //  MyNetworkInterceptor.h
 //  FCNetworkExample
 //
-//  Created by 刘天羽 on 2020/1/9.
-//  Copyright © 2020 LeoLiu. All rights reserved.
+//  Created by LeoLiu on 2020/1/9.
+//  Copyright (c) 2020 ForestCocoon ltyfantasy@163.com. All rights reserved.
 //
 
 #import <Foundation/Foundation.h>
